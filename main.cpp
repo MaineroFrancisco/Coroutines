@@ -5,7 +5,7 @@
 #include <string>
 #include <unordered_map>
 
-// Template simple awaiter
+// Template simple awaiter.
 template <typename V> struct value_awaiter {
 	V value;
 
@@ -48,6 +48,21 @@ struct aync_read {
 	constexpr std::string await_resume() { return value; }
 };
 
+struct is_awaiter_test {
+	struct promise_type {
+		constexpr std::suspend_always initial_suspend() { return {}; };
+		constexpr std::suspend_always final_suspend() noexcept { return {}; };
+		void unhandled_exception() {}
+		is_awaiter_test get_return_object() { return {}; }
+
+		void return_void() {}
+	};
+};
+
+// Use concept to distinguish between awaiting a value, and awaiting an awaiter.
+template <typename T>
+concept is_awaiter = requires { [](T t) -> is_awaiter_test { co_await t; }; };
+
 struct task {
 	struct promise_type {
 		std::exception_ptr error{};
@@ -58,16 +73,29 @@ struct task {
 
 		void return_void() {}
 
-		// template <typename V> auto await_transform(V v) { return value_awaiter<V>(v); }
+		// transform to await an awaiter.
+		template <typename A>
+			requires is_awaiter<A>
+		auto await_transform(A a) {
+			return a;
+		}
+
+		// transform to await a value.
+		template <typename V>
+			requires(!is_awaiter<V>)
+		auto await_transform(V v) {
+			return value_awaiter<V>(v);
+		}
 	};
 };
 
+int to_be_made_async() { return 17; }
+
 task f(io &c) {
 	// co_await: Suspends a coroutine and returns control to the caller.
-	std::string message = co_await aync_read{c, 1};
-	std::cout << "first=" << message << "\n";
-	message = co_await aync_read{c, 1};
-	std::cout << "second=" << message << "\n";
+	std::cout << "first=" << co_await aync_read{c, 1} << "\n";
+	std::cout << "value=" << co_await to_be_made_async() << "\n";
+	std::cout << "second=" << co_await aync_read{c, 1} << "\n";
 }
 
 int main() {
@@ -79,7 +107,7 @@ int main() {
 		// Prints "first=", invoke async_read then awaits
 		f(context);
 
-		// Resume execution, finish printing "first=first line", then f() proceeds and awaits on aync_read again
+		// Resume execution, finish printing "first=first line", proceeds to await for a value (to_be_made_async())
 		context.complete(1, "first line");
 		// Main continues printing "Back to main"
 		std::cout << "Back in main \n";
