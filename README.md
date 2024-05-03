@@ -8,28 +8,36 @@ This repo is intended to expand that demo further from the basics as I continue 
 
 # Key Concepts
 
-- Awaited: Specify how async work is executed.
-- Promise Type: Specifying how a coroutine operates.
+<ul>
+<li>Awaited: Specify how async work is executed.</li>
+<li>Promise Type: Specifying how a coroutine operates.</li>
+</ul>
 
 ## Awaiter type
 
 Required functions to be defined for the awaiter structure.
 
-- await_ready(): tells the system where suspend is ready.
-- await_suspend():
--- Set up something to know to resume the coroutine.
--- Arrange for the work to eventually complete.
-- await_resume(): produce the awaited result.
- 
+<ul>
+ <li>await_ready(): tells the system where suspend is ready.</li>
+ <li>await_suspend():</li>
+ <ul>
+  <li>Set up something to know to resume the coroutine.</li>
+  <li>Arrange for the work to eventually complete.</li>
+ </ul>
+ <li>await_resume(): produce the awaited result.</li>
+</ul>
+
 ## Promise Type:
 
 Minimum functions required:
 
-- initial_suspend(): how to start a coroutine.
-- final_suspend(): how to end a coroutine.
-- unhandled_exception(): what to do with escaped exceptions.
-- get_return_object(): how to build the result of factory function.
-- return_void()/return_value() (missed on talk): to call a return function with void/non-void return type respectively.
+<ul>
+<li>initial_suspend(): how to start a coroutine.</li>
+<li>final_suspend(): how to end a coroutine.</li>
+<li>unhandled_exception(): what to do with escaped exceptions.</li>
+<li>get_return_object(): how to build the result of factory function.</li>
+<li>return_void()/return_value() (missed on talk): to call a return function with void/non-void return type respectively.</li>
+</ul>
 
 ---
 
