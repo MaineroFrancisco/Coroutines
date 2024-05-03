@@ -65,10 +65,23 @@ concept is_awaiter = requires { [](T t) -> is_awaiter_test { co_await t; }; };
 
 struct task {
 	struct promise_type {
+		std::coroutine_handle<> continuation;
+
 		std::exception_ptr error{};
-		std::suspend_never initial_suspend() { return {}; };
-		std::suspend_never final_suspend() noexcept { return {}; };
-		task get_return_object() { return {}; }
+
+		// Will cause main to print alone, because we never start the coroutine
+		std::suspend_always initial_suspend() { return {}; };
+
+		// std::suspend_never initial_suspend() { return {}; };
+
+		// On final_suspend creates and awaiter which make stopped promise resume (to resume suspended task g())
+		struct final_awaiter : std::suspend_always {
+			promise_type *promise;
+			void await_suspend(auto) noexcept { promise->continuation.resume(); }
+		};
+		final_awaiter final_suspend() noexcept { return {{}, this}; };
+
+		task get_return_object() { return {this}; }
 		void unhandled_exception() { error = std::current_exception(); }
 
 		void return_void() {}
@@ -87,15 +100,45 @@ struct task {
 			return value_awaiter<V>(v);
 		}
 	};
+
+	promise_type *promise;
+
+	// Give a function to start the coroutine
+	void start() {
+		auto h = std::coroutine_handle<promise_type>::from_promise(*promise);
+		h.resume();
+	}
+
+	struct nested_awaiter {
+		promise_type *promise;
+		bool await_ready() const {
+			// std::cout << "nested_awaiter::await_ready() \n";
+			return false;
+		}
+		void await_suspend(std::coroutine_handle<> continuation) const {
+			promise->continuation = continuation;
+			std::coroutine_handle<promise_type>::from_promise(*promise).resume();
+		}
+		void await_resume() {}
+	};
+
+	nested_awaiter operator co_await() { return nested_awaiter{promise}; }
 };
 
 int to_be_made_async() { return 17; }
+
+task g(io &c) {
+	std::cout << "second=" << co_await aync_read{c, 1} << "\n";
+	std::cout << "third=" << co_await aync_read{c, 1} << "\n";
+}
 
 task f(io &c) {
 	// co_await: Suspends a coroutine and returns control to the caller.
 	std::cout << "first=" << co_await aync_read{c, 1} << "\n";
 	std::cout << "value=" << co_await to_be_made_async() << "\n";
-	std::cout << "second=" << co_await aync_read{c, 1} << "\n";
+	co_await g(c);
+
+	std::cout << "f end \n";
 }
 
 int main() {
@@ -105,14 +148,13 @@ int main() {
 		io context;
 
 		// Prints "first=", invoke async_read then awaits
-		f(context);
+		auto t = f(context);
+		t.start();
 
-		// Resume execution, finish printing "first=first line", proceeds to await for a value (to_be_made_async())
 		context.complete(1, "first line");
-		// Main continues printing "Back to main"
 		std::cout << "Back in main \n";
-		// Resume execution and prints "second=second line"
 		context.complete(1, "second line");
+		context.complete(1, "third line");
 	} catch (std::exception const &ex) {
 		std::cout << "ERROR: " << ex.what() << "\n";
 	}
