@@ -64,8 +64,10 @@ struct task {
 
 task f(io &c) {
 	// co_await: Suspends a coroutine and returns control to the caller.
-	std::cout << "first=" << co_await aync_read{c, 1} << "\n";
-	std::cout << "second=" << co_await aync_read{c, 1} << "\n";
+	std::string message = co_await aync_read{c, 1};
+	std::cout << "first=" << message << "\n";
+	message = co_await aync_read{c, 1};
+	std::cout << "second=" << message << "\n";
 }
 
 int main() {
@@ -77,11 +79,11 @@ int main() {
 		// Prints "first=", invoke async_read then awaits
 		f(context);
 
-		// Resume execution, finish printing "first=first line", then f() proceeds to print "second=" and awaits again
+		// Resume execution, finish printing "first=first line", then f() proceeds and awaits on aync_read again
 		context.complete(1, "first line");
-		// Main continues printing "Back to main", result = "second line=Back to main"
+		// Main continues printing "Back to main"
 		std::cout << "Back in main \n";
-		// Resume execution and prints "second line"
+		// Resume execution and prints "second=second line"
 		context.complete(1, "second line");
 	} catch (std::exception const &ex) {
 		std::cout << "ERROR: " << ex.what() << "\n";
