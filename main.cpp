@@ -9,7 +9,7 @@ struct task {
 		std::suspend_never final_suspend() noexcept { return {}; };
 		task get_return_object() { return {}; }
 		void unhandled_exception() { error = std::current_exception(); }
-		//void return_void() {}
+		void return_void() {}
 	};
 };
 
